@@ -1,0 +1,18 @@
+Source: m1n1
+Section: misc
+Priority: optional
+Maintainer: Tobias Heider <me@tobhe.de>
+Build-Depends: debhelper-compat (= 13), libmagickcore-6.q16-6-extra,
+ imagemagick, zopfli
+Standards-Version: 4.6.0
+Homepage: https://github.com/AsahiLinux/m1n1
+Vcs-Browser: https://github.com/tobhe/m1n1
+Rules-Requires-Root: no
+
+Package: m1n1
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Bootloader for Apple Silicon
+ m1n1 is the bootloader developed by the Asahi Linux project to bridge
+ the Apple (XNU) boot ecosystem to the Linux boot ecosystem.

@@ -1,0 +1,35 @@
+m1n1 (1.2.4-1) jammy; urgency=medium
+
+  * Update to upstream release v1.2.4
+
+ -- Tobias Heider <me@tobhe.de>  Mon, 30 Jan 2023 02:39:16 +0100
+
+m1n1 (1.2.3-1) jammy; urgency=medium
+
+  * Update to upstream release v1.2.3
+
+ -- Tobias Heider <me@tobhe.de>  Fri, 09 Dec 2022 14:53:40 +0100
+
+m1n1 (1.1.8-1) jammy; urgency=medium
+
+  * Update to upstream release v1.1.8
+
+ -- Tobias Heider <me@tobhe.de>  Sun, 20 Nov 2022 01:34:32 +0100
+
+m1n1 (1.1.7-1) jammy; urgency=medium
+
+  * Update to 1.1.7
+
+ -- Tobias Heider <me@tobhe.de>  Wed, 26 Oct 2022 16:58:39 +0200
+
+m1n1 (1.1.5-2) jammy; urgency=medium
+
+  * Add custom Ubuntu bootsplash
+
+ -- Tobias Heider <me@tobhe.de>  Sat, 24 Sep 2022 14:08:50 +0200
+
+m1n1 (1.1.5-1) jammy; urgency=medium
+
+  * Initial release.
+
+ -- Tobias Heider <me@tobhe.de>  Thu, 22 Sep 2022 20:11:02 +0200

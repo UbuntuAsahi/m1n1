@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Use custom Ubuntu logo
+	rm data/bootlogo_128.bin data/bootlogo_256.bin \
+	  data/bootlogo_128.png data/bootlogo_256.png
+	convert -background none -resize 128x128 -gravity center \
+	   -extent 128x128 debian/ubuntu.svg data/bootlogo_128.png
+	convert -background none -resize 256x256 -gravity center \
+	   -extent 256x256 debian/ubuntu.svg data/bootlogo_256.png
+	zopflipng -ym data/bootlogo_256.png data/bootlogo_256.png
+	cd data && ./makelogo.sh
+	dh_auto_build -- RELEASE=1

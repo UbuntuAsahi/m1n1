@@ -1,0 +1,10 @@
+Index: m1n1/version.sh
+===================================================================
+--- m1n1.orig/version.sh
++++ m1n1/version.sh
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ cd "$(dirname "$0")"
+ 
+ dirbase="$(basename "$(pwd)")"
