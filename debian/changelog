@@ -1,3 +1,9 @@
+m1n1 (1.2.6-1) kinetic; urgency=medium
+
+  * Update to upstream release v1.2.6
+
+ -- Tobias Heider <me@tobhe.de>  Thu, 23 Mar 2023 01:22:11 +0100
+
 m1n1 (1.2.4-1) jammy; urgency=medium
 
   * Update to upstream release v1.2.4
