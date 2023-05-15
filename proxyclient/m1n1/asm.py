@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-import os, tempfile, shutil, subprocess, re
+import os, tempfile, shutil, subprocess
 from . import sysreg
 
 __all__ = ["AsmException", "ARMAsm"]
@@ -55,7 +55,7 @@ class BaseAsm(object):
 
     def compile(self, source):
         for name, enc in sysreg.sysreg_fwd.items():
-            source = re.sub("\\b" + name + "\\b", f"s{enc[0]}_{enc[1]}_c{enc[2]}_c{enc[3]}_{enc[4]}", source)
+            source = source.replace(name, f"s{enc[0]}_{enc[1]}_c{enc[2]}_c{enc[3]}_{enc[4]}")
 
         self.sfile = self._tmp + "b.S"
         with open(self.sfile, "w") as fd:
