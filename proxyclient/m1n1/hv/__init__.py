@@ -51,19 +51,19 @@ class HV(Reloadable):
         AMAIR_EL1: AMAIR_EL12,
         CONTEXTIDR_EL1: CONTEXTIDR_EL12,
         ACTLR_EL1: ACTLR_EL12,
-        AMX_CTL_EL1: AMX_CTL_EL12,
+        AMX_CONFIG_EL1: AMX_CONFIG_EL12,
         SPRR_CONFIG_EL1: SPRR_CONFIG_EL12,
-        SPRR_PERM_EL1: SPRR_PERM_EL12,
-        SPRR_PERM_EL0: SPRR_PERM_EL02,
-        SPRR_UNK1_EL1: SPRR_UNK1_EL12,
-        SPRR_UMASK0_EL1: SPRR_UMASK0_EL12,
+        SPRR_PPERM_EL1: SPRR_PPERM_EL12,
+        SPRR_UPERM_EL0: SPRR_UPERM_EL02,
+        SPRR_AMRANGE_EL1: SPRR_AMRANGE_EL12,
+        SPRR_UMPRR_EL1: SPRR_UMPRR_EL12,
         APCTL_EL1: APCTL_EL12,
         APSTS_EL1: APSTS_EL12,
-        KERNELKEYLO_EL1: KERNELKEYLO_EL12,
-        KERNELKEYHI_EL1: KERNELKEYHI_EL12,
+        KERNKEYLO_EL1: KERNKEYLO_EL12,
+        KERNKEYHI_EL1: KERNKEYHI_EL12,
         GXF_CONFIG_EL1: GXF_CONFIG_EL12,
-        GXF_ABORT_EL1: GXF_ABORT_EL12,
-        GXF_ENTER_EL1: GXF_ENTER_EL12,
+        GXF_PABENTRY_EL1: GXF_PABENTRY_EL12,
+        GXF_ENTRY_EL1: GXF_ENTRY_EL12,
         VBAR_GL1: VBAR_GL12,
         SPSR_GL1: SPSR_GL12,
         ASPSR_GL1: ASPSR_GL12,
@@ -1383,6 +1383,7 @@ class HV(Reloadable):
         self.iface.set_handler(START.HV, HV_EVENT.WDT_BARK, self.handle_bark)
         self.iface.set_handler(START.HV, HV_EVENT.CPU_SWITCH, self.handle_exception)
         self.iface.set_handler(START.HV, HV_EVENT.VIRTIO, self.handle_virtio)
+        self.iface.set_handler(START.HV, HV_EVENT.PANIC, self.handle_bark)
         self.iface.set_event_handler(EVENT.MMIOTRACE, self.handle_mmiotrace)
         self.iface.set_event_handler(EVENT.IRQTRACE, self.handle_irqtrace)
 
@@ -1429,13 +1430,13 @@ class HV(Reloadable):
         self.u.msr(MDSCR_EL1, MDSCR(MDE=1).value)
 
         # Enable AMX
-        amx_ctl = AMX_CTL(self.u.mrs(AMX_CTL_EL1))
+        amx_ctl = AMX_CONFIG(self.u.mrs(AMX_CONFIG_EL1))
         amx_ctl.EN_EL1 = 1
-        self.u.msr(AMX_CTL_EL1, amx_ctl.value)
+        self.u.msr(AMX_CONFIG_EL1, amx_ctl.value)
 
         # Set guest AP keys
-        self.u.msr(APVMKEYLO_EL2, 0x4E7672476F6E6147)
-        self.u.msr(APVMKEYHI_EL2, 0x697665596F755570)
+        self.u.msr(VMKEYLO_EL2, 0x4E7672476F6E6147)
+        self.u.msr(VMKEYHI_EL2, 0x697665596F755570)
         self.u.msr(APSTS_EL12, 1)
 
         self.map_vuart()
