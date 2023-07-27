@@ -4,9 +4,10 @@ Priority: optional
 Maintainer: Tobias Heider <me@tobhe.de>
 Build-Depends: debhelper-compat (= 13),
  gcc-aarch64-linux-gnu
-Standards-Version: 4.6.0
+Standards-Version: 4.6.2
 Homepage: https://github.com/AsahiLinux/m1n1
 Vcs-Browser: https://salsa.debian.org/tobhe/m1n1
+Vcs-Git: https://salsa.debian.org/tobhe/m1n1.git -b debian/unstable
 Rules-Requires-Root: no
 
 Package: m1n1
@@ -14,5 +15,5 @@ Architecture: any
 Multi-Arch: foreign
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Bootloader for Apple Silicon
- m1n1 is the bootloader developed by the Asahi Linux project to bridge
+ This is the bootloader developed by the Asahi Linux project to bridge
  the Apple (XNU) boot ecosystem to the Linux boot ecosystem.
