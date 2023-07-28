@@ -2,8 +2,7 @@ Source: m1n1
 Section: misc
 Priority: optional
 Maintainer: Tobias Heider <me@tobhe.de>
-Build-Depends: debhelper-compat (= 13),
- gcc-aarch64-linux-gnu
+Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
 Homepage: https://github.com/AsahiLinux/m1n1
 Vcs-Browser: https://salsa.debian.org/bananas-team/m1n1
