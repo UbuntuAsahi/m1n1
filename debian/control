@@ -6,8 +6,8 @@ Build-Depends: debhelper-compat (= 13),
  gcc-aarch64-linux-gnu
 Standards-Version: 4.6.2
 Homepage: https://github.com/AsahiLinux/m1n1
-Vcs-Browser: https://salsa.debian.org/tobhe/m1n1
-Vcs-Git: https://salsa.debian.org/tobhe/m1n1.git -b debian/unstable
+Vcs-Browser: https://salsa.debian.org/bananas-team/m1n1
+Vcs-Git: https://salsa.debian.org/bananas-team/m1n1.git
 Rules-Requires-Root: no
 
 Package: m1n1
