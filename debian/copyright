@@ -22,7 +22,7 @@ Copyright:	2014 David Gibson <david@gibson.dropbear.id.au>
 		2012 Kim Phillips, Freescale Semiconductor.
 		2016 Free Electrons
 		2016 NextThing Co.
-License:	BSD-2-clause
+License:	GPL-2.0-or-later or BSD-2-clause
 
 Files:		src/minilzlib/*
 Copyright:	2020 Alex Ionescu
