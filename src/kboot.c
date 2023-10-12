@@ -10,7 +10,9 @@
 #include "devicetree.h"
 #include "exception.h"
 #include "firmware.h"
+#include "isp.h"
 #include "malloc.h"
+#include "mcc.h"
 #include "memory.h"
 #include "pcie.h"
 #include "pmgr.h"
@@ -99,9 +101,9 @@ static int dt_set_rng_seed_sep(int node)
     uint8_t rng_seed[128]; // same size used by Linux for kexec
 
     if (sep_get_random(&kaslr_seed, sizeof(kaslr_seed)) != sizeof(kaslr_seed))
-        bail("SEP: couldn't get enough random bytes for KASLR seed");
+        bail("SEP: couldn't get enough random bytes for KASLR seed\n");
     if (sep_get_random(rng_seed, sizeof(rng_seed)) != sizeof(rng_seed))
-        bail("SEP: couldn't get enough random bytes for RNG seed");
+        bail("SEP: couldn't get enough random bytes for RNG seed\n");
 
     if (fdt_setprop_u64(dt, node, "kaslr-seed", kaslr_seed))
         bail("FDT: couldn't set kaslr-seed\n");
@@ -267,22 +269,22 @@ static int dt_set_chosen(void)
 
     if (fdt_setprop(dt, node, "asahi,iboot1-version", system_firmware.iboot,
                     strlen(system_firmware.iboot) + 1))
-        bail("FDT: couldn't set asahi,iboot1-version");
+        bail("FDT: couldn't set asahi,iboot1-version\n");
 
     if (fdt_setprop(dt, node, "asahi,system-fw-version", system_firmware.string,
                     strlen(system_firmware.string) + 1))
-        bail("FDT: couldn't set asahi,system-fw-version");
+        bail("FDT: couldn't set asahi,system-fw-version\n");
 
     if (fdt_setprop(dt, node, "asahi,iboot2-version", os_firmware.iboot,
                     strlen(os_firmware.iboot) + 1))
-        bail("FDT: couldn't set asahi,iboot2-version");
+        bail("FDT: couldn't set asahi,iboot2-version\n");
 
     if (fdt_setprop(dt, node, "asahi,os-fw-version", os_firmware.string,
                     strlen(os_firmware.string) + 1))
-        bail("FDT: couldn't set asahi,os-fw-version");
+        bail("FDT: couldn't set asahi,os-fw-version\n");
 
     if (fdt_setprop(dt, node, "asahi,m1n1-stage2-version", m1n1_version, strlen(m1n1_version) + 1))
-        bail("FDT: couldn't set asahi,m1n1-stage2-version");
+        bail("FDT: couldn't set asahi,m1n1-stage2-version\n");
 
     if (dt_set_rng_seed_sep(node))
         return dt_set_rng_seed_adt(node);
@@ -612,7 +614,7 @@ static int dt_set_bluetooth_cal(int anode, int node, const char *adt_name, const
     const u8 *cal_blob = adt_getprop(adt, anode, adt_name, &len);
 
     if (!cal_blob || !len)
-        bail("ADT: Failed to get %s", adt_name);
+        bail("ADT: Failed to get %s\n", adt_name);
 
     fdt_setprop(dt, node, fdt_name, cal_blob, len);
     return 0;
@@ -654,7 +656,7 @@ static int dt_set_multitouch(void)
 
     int node = fdt_path_offset(dt, path);
     if (node < 0)
-        bail("FDT: alias points at nonexistent node");
+        bail("FDT: alias points at nonexistent node\n");
 
     const char *adt_touchbar;
     if (fdt_node_check_compatible(dt, 0, "apple,j293") == 0)
@@ -670,8 +672,12 @@ static int dt_set_multitouch(void)
 
     u32 len;
     const u8 *cal_blob = adt_getprop(adt, anode, "multi-touch-calibration", &len);
-    if (!cal_blob || !len)
-        bail("ADT: Failed to get multi-touch-calibration");
+    if (!cal_blob || !len) {
+        printf("ADT: Failed to get multi-touch-calibration from %s, disable %s\n", adt_touchbar,
+               fdt_get_name(dt, node, NULL));
+        fdt_setprop_string(dt, node, "status", "disabled");
+        return 0;
+    }
 
     fdt_setprop(dt, node, "apple,z2-cal-blob", cal_blob, len);
     return 0;
@@ -703,7 +709,7 @@ static int dt_set_ipd(void)
     u8 code = kblang[1];
 
     if (fdt_setprop_u32(dt, chosen, "asahi,kblang-code", code))
-        bail("FDT: couldn't set asahi,kblang-code");
+        bail("FDT: couldn't set asahi,kblang-code\n");
 
     const char *path = fdt_get_alias(dt, "keyboard");
     if (path == NULL)
@@ -711,15 +717,66 @@ static int dt_set_ipd(void)
 
     int node = fdt_path_offset(dt, path);
     if (node < 0)
-        bail("FDT: keyboard alias points at nonexistent node");
+        bail("FDT: keyboard alias points at nonexistent node\n");
 
     if (fdt_setprop_u32(dt, node, "apple,keyboard-layout-id", code))
-        bail("FDT: couldn't set apple,keyboard-layout-id");
+        bail("FDT: couldn't set apple,keyboard-layout-id\n");
 
     if (code >= ARRAY_SIZE(keyboard_types))
         printf("ADT: kblang code out of range, not setting country code\n");
     else if (fdt_setprop_u32(dt, node, "hid-country-code", keyboard_types[code]))
-        bail("FDT: couldn't set hid-country-code");
+        bail("FDT: couldn't set hid-country-code\n");
+
+    return 0;
+}
+
+#define NVRAM_START    0x700000
+#define NVRAM_MAX_SIZE SZ_1M
+
+static int dt_set_nvram(void)
+{
+    int adt_path[8];
+    u64 start, size;
+
+    int anode = adt_path_offset_trace(adt, "/arm-io/spi1/spinor/anvram", adt_path);
+    if (anode < 0) {
+        printf("ADT: nvram partition not found\n");
+        return 0;
+    }
+
+    int pp = 0;
+    while (adt_path[pp])
+        pp++;
+    adt_path[pp + 1] = 0;
+
+    int ret = adt_get_reg(adt, adt_path, "reg", 0, &start, &size);
+    if (ret < 0) {
+        printf("ADT: could not read nvram partition start/size\n");
+        return 0;
+    }
+
+    if (start != NVRAM_START || size > NVRAM_MAX_SIZE) {
+
+        printf("ADT: unexpected nvram partition start (0x%lx) size (0x%lx)\n", start, size);
+        return 0;
+    }
+
+    int node = fdt_path_offset(dt, "nvram");
+    if (node < 0) {
+        printf("DT: nvram alias/partition not found\n");
+        return 0;
+    }
+
+    fdt32_t reg[2];
+    fdt32_st(reg + 0, start);
+    fdt32_st(reg + 1, size);
+    if (fdt_setprop(dt, node, "reg", reg, sizeof(reg))) {
+        printf("FDT: couldn't set nvram.reg\n");
+        return 0;
+    }
+
+    if (fdt_setprop_string(dt, node, "status", "okay") < 0)
+        printf("FDT: failed to enable nvram partition node\n");
 
     return 0;
 }
@@ -733,7 +790,7 @@ static int dt_set_wifi(void)
 
     uint8_t info[16];
     if (ADT_GETPROP_ARRAY(adt, anode, "wifi-antenna-sku-info", info) < 0)
-        bail("ADT: Failed to get wifi-antenna-sku-info");
+        bail("ADT: Failed to get wifi-antenna-sku-info\n");
 
     const char *path = fdt_get_alias(dt, "wifi0");
     if (path == NULL)
@@ -751,7 +808,7 @@ static int dt_set_wifi(void)
     const u8 *cal_blob = adt_getprop(adt, anode, "wifi-calibration-msf", &len);
 
     if (!cal_blob || !len)
-        bail("ADT: Failed to get wifi-calibration-msf");
+        bail("ADT: Failed to get wifi-calibration-msf\n");
 
     fdt_setprop(dt, node, "brcm,cal-blob", cal_blob, len);
 
@@ -1076,13 +1133,13 @@ static int dt_copy_acio_tunables(const char *adt_path, const char *dt_alias)
     u32 drom_len;
     const u8 *drom_blob = adt_getprop(adt, adt_node, "thunderbolt-drom", &drom_len);
     if (!drom_blob || !drom_len)
-        bail("ADT: Failed to get thunderbolt-drom");
+        bail("ADT: Failed to get thunderbolt-drom\n");
 
     fdt_setprop(dt, fdt_node, "apple,thunderbolt-drom", drom_blob, drom_len);
     for (size_t i = 0; i < sizeof(acio_tunables) / sizeof(*acio_tunables); ++i) {
         ret = dt_append_acio_tunable(adt_node, fdt_node, &acio_tunables[i]);
         if (ret)
-            bail_cleanup("ADT: unable to convert '%s' tunable", acio_tunables[i].adt_name);
+            bail_cleanup("ADT: unable to convert '%s' tunable\n", acio_tunables[i].adt_name);
     }
 
     return 0;
@@ -1207,21 +1264,20 @@ static int dt_get_or_add_reserved_mem(const char *node_name, const char *compat,
         bail("FDT: '/reserved-memory' not found\n");
 
     int node = fdt_subnode_offset(dt, resv_node, node_name);
-    if (node >= 0)
-        return node;
+    if (node < 0) {
+        node = fdt_add_subnode(dt, resv_node, node_name);
+        if (node < 0)
+            bail("FDT: failed to add node '%s' to  '/reserved-memory'\n", node_name);
 
-    node = fdt_add_subnode(dt, resv_node, node_name);
-    if (node < 0)
-        bail("FDT: failed to add node '%s' to  '/reserved-memory'\n", node_name);
+        uint32_t phandle;
+        ret = fdt_generate_phandle(dt, &phandle);
+        if (ret)
+            bail("FDT: failed to generate phandle: %d\n", ret);
 
-    uint32_t phandle;
-    ret = fdt_generate_phandle(dt, &phandle);
-    if (ret)
-        bail("FDT: failed to generate phandle: %d\n", ret);
-
-    ret = fdt_setprop_u32(dt, node, "phandle", phandle);
-    if (ret != 0)
-        bail("FDT: couldn't set '%s.phandle' property: %d\n", node_name, ret);
+        ret = fdt_setprop_u32(dt, node, "phandle", phandle);
+        if (ret != 0)
+            bail("FDT: couldn't set '%s.phandle' property: %d\n", node_name, ret);
+    }
 
     u64 reg[2] = {cpu_to_fdt64(paddr), cpu_to_fdt64(size)};
     ret = fdt_setprop(dt, node, "reg", reg, sizeof(reg));
@@ -1516,7 +1572,8 @@ static int dt_vram_reserved_region(const char *dcp_alias, const char *disp_alias
                                    disp_reserved_regions_vram, &region, 1);
 }
 
-static int dt_reserve_asc_firmware(const char *adt_path, const char *fdt_path)
+static int dt_reserve_asc_firmware(const char *adt_path, const char *adt_path_alt,
+                                   const char *fdt_path, bool remap, u64 base)
 {
     int ret = 0;
 
@@ -1527,6 +1584,8 @@ static int dt_reserve_asc_firmware(const char *adt_path, const char *fdt_path)
     }
 
     int node = adt_path_offset(adt, adt_path);
+    if (node < 0 && adt_path_alt)
+        node = adt_path_offset(adt, adt_path_alt);
     if (node < 0)
         bail("ADT: '%s' not found\n", adt_path);
 
@@ -1539,33 +1598,32 @@ static int dt_reserve_asc_firmware(const char *adt_path, const char *fdt_path)
             bail("FDT: couldn't set '%s.phandle' property: %d\n", fdt_path, ret);
     }
 
-    const uint64_t *segments;
+    const struct adt_segment_ranges *seg;
     u32 segments_len;
 
-    segments = adt_getprop(adt, node, "segment-ranges", &segments_len);
-    unsigned int num_maps = segments_len / 32;
+    seg = adt_getprop(adt, node, "segment-ranges", &segments_len);
+    unsigned int num_maps = segments_len / sizeof(*seg);
 
     for (unsigned i = 0; i < num_maps; i++) {
-        u64 paddr = segments[0];
-        u64 iova = segments[2];
-        u32 size = segments[3];
-        segments += 4;
+        u64 iova = (remap ? seg->remap : seg->iova) | base;
 
         char node_name[64];
-        snprintf(node_name, sizeof(node_name), "asc-firmware@%lx", paddr);
+        snprintf(node_name, sizeof(node_name), "asc-firmware@%lx", seg->phys);
 
-        int mem_node = dt_get_or_add_reserved_mem(node_name, "apple,asc-mem", paddr, size);
+        int mem_node = dt_get_or_add_reserved_mem(node_name, "apple,asc-mem", seg->phys, seg->size);
         if (mem_node < 0)
             return ret;
         uint32_t mem_phandle = fdt_get_phandle(dt, mem_node);
 
-        ret = dt_device_set_reserved_mem(mem_node, node_name, dev_phandle, iova, size);
+        ret = dt_device_set_reserved_mem(mem_node, node_name, dev_phandle, iova, seg->size);
         if (ret < 0)
             return ret;
 
         ret = dt_device_add_mem_region(fdt_path, mem_phandle, NULL);
         if (ret < 0)
             return ret;
+
+        seg++;
     }
 
     return 0;
@@ -1787,6 +1845,71 @@ static int dt_set_sio_fwdata(void)
         if (fdt_appendprop_u32(dt, node, "apple,sio-firmware-params", param->value))
             bail("FDT: couldn't append to SIO parameters\n");
     }
+
+    return 0;
+}
+
+struct isp_segment_ranges {
+    u64 phys;
+    u64 iova;
+    u64 remap;
+    u32 size;
+    u32 unk;
+} PACKED;
+
+static int dt_set_isp_fwdata(void)
+{
+    const char *fdt_path = "isp";
+    int ret = 0;
+
+    u64 phys, iova, size;
+
+    int fdt_node = fdt_path_offset(dt, fdt_path);
+    if (fdt_node < 0) {
+        printf("FDT: '%s' not found\n", fdt_path);
+        return 0;
+    }
+
+    if (firmware_set_fdt(dt, fdt_node, "apple,firmware-version", &os_firmware) < 0)
+        bail("FDT: Could not set apple,firmware-version for %s\n", fdt_path);
+
+    if (firmware_set_fdt(dt, fdt_node, "apple,firmware-compat", &os_firmware) < 0)
+        bail("FDT: Could not set apple,firmware-compat for %s\n", fdt_path);
+
+    if (isp_get_heap(&phys, &iova, &size)) {
+        const char *status = fdt_getprop(dt, fdt_node, "status", NULL);
+
+        if (!status || strcmp(status, "disabled")) {
+            printf("FDT: ISP enabled but not initialized, disabling\n");
+            if (fdt_setprop_string(dt, fdt_node, "status", "disabled") < 0)
+                bail("FDT: failed to set status property of ISP\n");
+        }
+
+        return 0;
+    }
+
+    int adt_node = adt_path_offset(adt, "/arm-io/isp");
+    if (adt_node < 0)
+        adt_node = adt_path_offset(adt, "/arm-io/isp0");
+    if (adt_node < 0)
+        return 0;
+
+    uint32_t dev_phandle = fdt_get_phandle(dt, fdt_node);
+    if (!dev_phandle) {
+        ret = fdt_generate_phandle(dt, &dev_phandle);
+        if (!ret)
+            ret = fdt_setprop_u32(dt, fdt_node, "phandle", dev_phandle);
+        if (ret != 0)
+            bail("FDT: couldn't set '%s.phandle' property: %d\n", fdt_path, ret);
+    }
+
+    int mem_node = dt_get_or_add_reserved_mem("isp-heap", "apple,asc-mem", phys, size);
+    if (mem_node < 0)
+        return ret;
+
+    ret = dt_device_set_reserved_mem(mem_node, "isp-heap", dev_phandle, iova, size);
+    if (ret < 0)
+        return ret;
 
     return 0;
 }
@@ -2052,6 +2175,9 @@ int kboot_prepare_dt(void *fdt)
         dt = NULL;
     }
 
+    /* Need to init ISP early to carve out heap */
+    isp_init();
+
     dt_bufsize = fdt_totalsize(fdt);
     assert(dt_bufsize);
 
@@ -2091,15 +2217,21 @@ int kboot_prepare_dt(void *fdt)
         return -1;
     if (dt_set_multitouch())
         return -1;
+    if (dt_set_nvram())
+        return -1;
     if (dt_set_ipd())
         return -1;
     if (dt_disable_missing_devs("usb-drd", "usb@", 8))
         return -1;
     if (dt_disable_missing_devs("i2c", "i2c@", 8))
         return -1;
-    if (dt_reserve_asc_firmware("/arm-io/sio", "sio"))
+    if (dt_reserve_asc_firmware("/arm-io/sio", NULL, "sio", true, 0))
         return -1;
     if (dt_set_sio_fwdata())
+        return -1;
+    if (dt_reserve_asc_firmware("/arm-io/isp", "/arm-io/isp0", "isp", false, isp_iova_base()))
+        return -1;
+    if (dt_set_isp_fwdata())
         return -1;
 #ifndef RELEASE
     if (dt_transfer_virtios())
@@ -2124,6 +2256,7 @@ int kboot_prepare_dt(void *fdt)
 
 int kboot_boot(void *kernel)
 {
+    mcc_enable_cache();
     tunables_apply_static();
     clk_init();
 
