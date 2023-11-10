@@ -1,3 +1,9 @@
+m1n1 (1.4.6-1) mantic; urgency=medium
+
+  * New upstream version 1.4.6
+
+ -- Tobias Heider <me@tobhe.de>  Fri, 10 Nov 2023 15:55:18 +0100
+
 m1n1 (1.4.3-1) unstable; urgency=medium
 
   * New upstream version 1.4.3
