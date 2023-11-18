@@ -622,11 +622,10 @@ static void afk_epic_notify_handler(afk_epic_ep_t *epic)
 afk_epic_ep_t *afk_epic_start_ep(afk_epic_t *afk, int endpoint, const afk_epic_service_ops_t *ops,
                                  bool notify)
 {
-    afk_epic_ep_t *epic = malloc(sizeof(afk_epic_ep_t));
+    afk_epic_ep_t *epic = calloc(1, sizeof(afk_epic_ep_t));
     if (!epic)
         return NULL;
 
-    memset(epic, 0, sizeof(*epic));
     epic->ep = endpoint;
     epic->afk = afk;
     epic->ops = ops;
@@ -705,9 +704,10 @@ static const afk_epic_service_ops_t *afk_match_service(afk_epic_ep_t *ep, const 
     return NULL;
 }
 
-int afk_epic_start_interface(afk_epic_ep_t *epic, void *intf, size_t txsize, size_t rxsize)
+int afk_epic_start_interface(afk_epic_ep_t *epic, void *intf, int expected, size_t txsize,
+                             size_t rxsize)
 {
-    int channels = 0;
+    int services = 0;
     struct afk_qe *msg;
     struct epic_announce *announce;
 
@@ -721,7 +721,9 @@ int afk_epic_start_interface(afk_epic_ep_t *epic, void *intf, size_t txsize, siz
             break;
     }
 
-    for (int tries = 0; tries < 20; tries += 1) {
+    u64 timeout = timeout_calculate(500000);
+
+    while (!timeout_expired(timeout)) {
         s64 epic_unit = -1;
         char *epic_name = NULL;
         char *epic_class = NULL;
@@ -810,11 +812,12 @@ int afk_epic_start_interface(afk_epic_ep_t *epic, void *intf, size_t txsize, siz
         free(epic_name);
         free(epic_class);
 
-        channels++;
         afk_epic_rx_ack(epic);
+        if (++services >= expected)
+            break;
     }
 
-    if (!channels) {
+    if (!services) {
         printf("AFK[ep:%02x]: too many unexpected messages, giving up\n", epic->ep);
         return -1;
     }
@@ -829,7 +832,7 @@ int afk_epic_start_interface(afk_epic_ep_t *epic, void *intf, size_t txsize, siz
         return -1;
     }
 
-    dprintf("AFK[ep:%02x]: started interface with %d services\n", epic->ep, channels);
+    dprintf("AFK[ep:%02x]: started interface with %d services\n", epic->ep, services);
 
     return 0;
 }

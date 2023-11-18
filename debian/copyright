@@ -13,6 +13,12 @@ Copyright:	The Asahi Linux Contributors
 		2017-2018 Arm Limited
 License:	MIT
 
+Files:		src/dcp/*
+Copyright:	2021 Alyssa Rosenzweig <alyssa@rosenzweig.io>
+		2022 Sven Peter <sven@svenpeter.dev>
+		2023 Janne Grunau <j@jannau.net>
+License:	GPL-2.0 or MIT
+
 Files:		src/libfdt/*
 		src/adt.*
 Copyright:	2014 David Gibson <david@gibson.dropbear.id.au>
@@ -46,7 +52,7 @@ License:	OFL-1.1
 
 Files:		src/usb_dwc3*
 Copyright:	2010-2011 Texas Instruments Incorporated
-License:	GPL-2 or BSD-3-clause
+License:	MIT
 
 Files:		debian/*
 Copyright:	2022 Tobias Heider <me@tobhe.de>
@@ -223,7 +229,7 @@ License:	CC0
      party to this document and has no duty or obligation with respect to
      this CC0 or use of the Work.
 
-License:	GPL-2
+License:	GPL-2.0
  This package is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
  published by the Free Software Foundation.

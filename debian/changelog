@@ -1,14 +1,21 @@
-m1n1 (1.4.2-1ubuntu1) jammy; urgency=medium
+m1n1 (1.4.6-1~ubuntuasahi0) jammy; urgency=medium
 
-  * Port Ubuntu patches
+  * Add Ubuntu branding
 
  -- Tobias Heider <me@tobhe.de>  Thu, 12 Oct 2023 19:13:28 +0200
 
-m1n1 (1.4.2-1) unstable; urgency=medium
+m1n1 (1.4.6-1) unstable; urgency=medium
 
-  * New upstream version 1.4.2
+  * New upstream version 1.4.6
 
- -- Tobias Heider <me@tobhe.de>  Thu, 12 Oct 2023 19:01:09 +0200
+ -- Tobias Heider <me@tobhe.de>  Fri, 10 Nov 2023 15:55:18 +0100
+
+m1n1 (1.4.3-1) unstable; urgency=medium
+
+  * New upstream version 1.4.3
+  * gbp.conf: Add upstream-vcs-tag
+
+ -- Tobias Heider <me@tobhe.de>  Sun, 15 Oct 2023 16:38:24 +0200
 
 m1n1 (1.3.3-1) unstable; urgency=medium
 
