@@ -1,8 +1,14 @@
-m1n1 (1.4.8-1ubuntu0) jammy; urgency=medium
+m1n1 (1.4.11-1ubuntu0) jammy; urgency=medium
 
-  * Add Ubuntu branding
+  * Add Ubuntu logo
 
  -- Tobias Heider <me@tobhe.de>  Tue, 12 Dec 2023 00:49:01 +0100
+
+m1n1 (1.4.11-1) unstable; urgency=medium
+
+  * New upstream version 1.4.11
+
+ -- Tobias Heider <me@tobhe.de>  Sun, 17 Dec 2023 18:17:11 +0100
 
 m1n1 (1.4.8-1) unstable; urgency=medium
 
