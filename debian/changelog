@@ -1,8 +1,15 @@
-m1n1 (1.4.13-1ubuntu0.1~asahi1) jammy; urgency=medium
+m1n1 (1.4.14-1ubuntu0.1~asahi1) jammy; urgency=medium
 
+  * Import from Debian
   * Add Ubuntu logo
 
- -- Tobias Heider <me@tobhe.de>  Tue, 12 Dec 2023 00:49:01 +0100
+ -- Tobias Heider <me@tobhe.de>  Sat, 18 May 2024 18:12:22 +0200
+
+m1n1 (1.4.14-1) unstable; urgency=medium
+
+  * New upstream version 1.4.14
+
+ -- Tobias Heider <me@tobhe.de>  Sat, 18 May 2024 13:27:57 +0200
 
 m1n1 (1.4.13-1) unstable; urgency=medium
 
