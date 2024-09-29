@@ -11,6 +11,7 @@
 #include "display.h"
 #include "exception.h"
 #include "firmware.h"
+#include "iodev.h"
 #include "isp.h"
 #include "malloc.h"
 #include "mcc.h"
@@ -674,9 +675,7 @@ static int dt_set_multitouch(void)
     u32 len;
     const u8 *cal_blob = adt_getprop(adt, anode, "multi-touch-calibration", &len);
     if (!cal_blob || !len) {
-        printf("ADT: Failed to get multi-touch-calibration from %s, disable %s\n", adt_touchbar,
-               fdt_get_name(dt, node, NULL));
-        fdt_setprop_string(dt, node, "status", "disabled");
+        printf("ADT: Failed to get multi-touch-calibration from %s\n", adt_touchbar);
         return 0;
     }
 
@@ -1256,8 +1255,8 @@ static int dt_device_set_reserved_mem_from_dart(int node, dart_dev_t *dart, cons
     return dt_device_set_reserved_mem(node, name, phandle, iova, size);
 }
 
-static int dt_get_or_add_reserved_mem(const char *node_name, const char *compat, u64 paddr,
-                                      size_t size)
+static int dt_get_or_add_reserved_mem(const char *node_name, const char *compat, bool nomap,
+                                      u64 paddr, size_t size)
 {
     int ret;
     int resv_node = fdt_path_offset(dt, "/reserved-memory");
@@ -1289,9 +1288,11 @@ static int dt_get_or_add_reserved_mem(const char *node_name, const char *compat,
     if (ret != 0)
         bail("FDT: couldn't set '%s.compatible' property: %d\n", node_name, ret);
 
-    ret = fdt_setprop_empty(dt, node, "no-map");
-    if (ret != 0)
-        bail("FDT: couldn't set '%s.no-map' property: %d\n", node_name, ret);
+    if (nomap) {
+        ret = fdt_setprop_empty(dt, node, "no-map");
+        if (ret != 0)
+            bail("FDT: couldn't set '%s.no-map' property: %d\n", node_name, ret);
+    }
 
     return node;
 }
@@ -1427,7 +1428,7 @@ static int dt_add_reserved_regions(const char *dcp_alias, const char *disp_alias
 
         snprintf(node_name, sizeof(node_name), "%s@%lx", name, region[i].paddr);
         int mem_node =
-            dt_get_or_add_reserved_mem(node_name, compat, region[i].paddr, region[i].size);
+            dt_get_or_add_reserved_mem(node_name, compat, true, region[i].paddr, region[i].size);
         if (mem_node < 0)
             goto err;
 
@@ -1623,7 +1624,8 @@ static int dt_reserve_asc_firmware(const char *adt_path, const char *adt_path_al
             seg_size = ALIGN_UP(seg_size, SZ_16K);
         }
 
-        int mem_node = dt_get_or_add_reserved_mem(node_name, "apple,asc-mem", seg->phys, seg_size);
+        int mem_node =
+            dt_get_or_add_reserved_mem(node_name, "apple,asc-mem", true, seg->phys, seg_size);
         if (mem_node < 0)
             return ret;
         uint32_t mem_phandle = fdt_get_phandle(dt, mem_node);
@@ -1872,8 +1874,8 @@ static int dt_set_sio_fwdata(const char *adt_path, const char *fdt_alias)
         char node_name[64];
         snprintf(node_name, sizeof(node_name), "sio-firmware-data@%lx", mapping->phys);
 
-        int mem_node =
-            dt_get_or_add_reserved_mem(node_name, "apple,asc-mem", mapping->phys, mapping->size);
+        int mem_node = dt_get_or_add_reserved_mem(node_name, "apple,asc-mem", true, mapping->phys,
+                                                  mapping->size);
         if (mem_node < 0)
             return ret;
         uint32_t mem_phandle = fdt_get_phandle(dt, mem_node);
@@ -1997,7 +1999,7 @@ static int dt_set_isp_fwdata(void)
             bail("FDT: couldn't set '%s.phandle' property: %d\n", fdt_path, ret);
     }
 
-    int mem_node = dt_get_or_add_reserved_mem("isp-heap", "apple,asc-mem", phys, size);
+    int mem_node = dt_get_or_add_reserved_mem("isp-heap", "apple,asc-mem", true, phys, size);
     if (mem_node < 0)
         return ret;
 
@@ -2262,6 +2264,85 @@ int kboot_set_chosen(const char *name, const char *value)
     return i;
 }
 
+#define LOGBUF_SIZE SZ_16K
+
+struct {
+    void *buffer;
+    size_t wp;
+} logbuf;
+
+static bool log_console_iodev_can_write(void *opaque)
+{
+    UNUSED(opaque);
+    return !!logbuf.buffer;
+}
+
+static ssize_t log_console_iodev_write(void *opaque, const void *buf, size_t len)
+{
+    UNUSED(opaque);
+
+    if (!logbuf.buffer)
+        return 0;
+
+    ssize_t wrote = 0;
+    size_t remain = LOGBUF_SIZE - logbuf.wp;
+    while (remain < len) {
+        memcpy(logbuf.buffer + logbuf.wp, buf, remain);
+        logbuf.wp = 0;
+        wrote += remain;
+        buf += remain;
+        len -= remain;
+        remain = LOGBUF_SIZE;
+    }
+    memcpy(logbuf.buffer + logbuf.wp, buf, len);
+    wrote += len;
+    logbuf.wp = (logbuf.wp + len) % LOGBUF_SIZE;
+
+    return wrote;
+}
+
+const struct iodev_ops iodev_log_ops = {
+    .can_write = log_console_iodev_can_write,
+    .write = log_console_iodev_write,
+};
+
+struct iodev iodev_log = {
+    .ops = &iodev_log_ops,
+    .usage = USAGE_CONSOLE,
+    .lock = SPINLOCK_INIT,
+};
+
+static int dt_setup_mtd_phram(void)
+{
+    char node_name[64];
+    snprintf(node_name, sizeof(node_name), "flash@%lx", (u64)adt);
+
+    int node = dt_get_or_add_reserved_mem(node_name, "phram", false, (u64)adt,
+                                          ALIGN_UP(cur_boot_args.devtree_size, SZ_16K));
+
+    if (node > 0) {
+        int ret = fdt_setprop_string(dt, node, "label", "adt");
+        if (ret)
+            bail("FDT: failed to setup ADT MTD phram label\n");
+    }
+
+    // init memory backed iodev for console log
+    logbuf.buffer = (void *)top_of_memory_alloc(LOGBUF_SIZE);
+    if (!logbuf.buffer)
+        bail("FDT: failed to allocate m1n1 log buffer\n");
+
+    snprintf(node_name, sizeof(node_name), "flash@%lx", (u64)logbuf.buffer);
+    node = dt_get_or_add_reserved_mem(node_name, "phram", false, (u64)logbuf.buffer, SZ_16K);
+
+    if (node > 0) {
+        int ret = fdt_setprop_string(dt, node, "label", "m1n1_stage2.log");
+        if (ret)
+            bail("FDT: failed to setup m1n1 log MTD phram label\n");
+    }
+
+    return 0;
+}
+
 int kboot_prepare_dt(void *fdt)
 {
     if (dt) {
@@ -2286,6 +2367,9 @@ int kboot_prepare_dt(void *fdt)
 
     if (fdt_add_mem_rsv(dt, (u64)_base, ((u64)_end) - ((u64)_base)))
         bail("FDT: couldn't add reservation for m1n1\n");
+
+    /* setup console log buffer early to cpature as much log as possible */
+    dt_setup_mtd_phram();
 
     if (dt_set_chosen())
         return -1;
