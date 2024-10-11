@@ -50,7 +50,7 @@ class HV(Reloadable):
         MAIR_EL1: MAIR_EL12,
         AMAIR_EL1: AMAIR_EL12,
         CONTEXTIDR_EL1: CONTEXTIDR_EL12,
-        ACTLR_EL1: ACTLR_EL12,
+        # ACTLR_EL1: ACTLR_EL12, # Handled in hv_exc.c, depends on CPU version
         AMX_CONFIG_EL1: AMX_CONFIG_EL12,
         SPRR_CONFIG_EL1: SPRR_CONFIG_EL12,
         SPRR_PPERM_EL1: SPRR_PPERM_EL12,
@@ -1441,9 +1441,13 @@ class HV(Reloadable):
 
         self.map_vuart()
 
-        actlr = ACTLR(self.u.mrs(ACTLR_EL12))
+        # ACTLR depends on the CPU part
+        part = MIDR(self.u.mrs(MIDR_EL1)).PART
+        actlr_el12 = ACTLR_EL12 if part >= MIDR_PART.T8110_BLIZZARD else ACTLR_EL12_PRE
+
+        actlr = ACTLR(self.u.mrs(actlr_el12))
         actlr.EnMDSB = 1
-        self.u.msr(ACTLR_EL12, actlr.value)
+        self.u.msr(actlr_el12, actlr.value)
 
         self.setup_adt()
 
